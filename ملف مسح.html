@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>ماسح QR مشفر - للهاتف</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: radial-gradient(circle at 20% 30%, #0b1120, #03050b);
+            min-height: 100vh;
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 550px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border-radius: 2rem;
+            border: 1px solid rgba(71, 85, 105, 0.5);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 20px 35px -10px black;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-right: 3px solid #8b5cf6;
+            padding-right: 12px;
+        }
+        .btn {
+            background: linear-gradient(95deg, #4f46e5, #7c3aed);
+            border: none;
+            padding: 0.8rem 1rem;
+            border-radius: 2rem;
+            font-weight: 700;
+            color: white;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+            transition: 0.2s;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #8b5cf6;
+            color: #c4b5fd;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 1.2rem;
+            overflow: hidden;
+            margin: 0.5rem 0;
+            background: black;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            transform: scaleX(-1);
+            display: block;
+        }
+        .cam-controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .file-label {
+            background: #1e293b;
+            padding: 0.7rem;
+            border-radius: 1rem;
+            text-align: center;
+            color: #cbd5e6;
+            border: 1px solid #475569;
+            cursor: pointer;
+            display: block;
+            margin: 0.5rem 0;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .result-box {
+            background: #02061766;
+            border-radius: 1.2rem;
+            padding: 1rem;
+            border-left: 4px solid #10b981;
+            margin-top: 1rem;
+        }
+        .result-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #6c86a3;
+        }
+        .result-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #f1f5f9;
+            word-break: break-all;
+            margin-top: 5px;
+        }
+        .error {
+            color: #f87171;
+            background: #7f1a1a33;
+            padding: 0.6rem;
+            border-radius: 1rem;
+            margin-top: 0.8rem;
+            font-size: 0.8rem;
+        }
+        .status {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-align: center;
+            margin-top: 8px;
+        }
+        hr {
+            margin: 1rem 0;
+            border-color: #334155;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h2><i class="fas fa-camera"></i> مسح QR مشفر</h2>
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+        </div>
+        <div class="cam-controls">
+            <button id="startCamBtn" class="btn"><i class="fas fa-play"></i> تشغيل الكاميرا</button>
+            <button id="captureBtn" class="btn btn-outline" disabled><i class="fas fa-camera"></i> التقاط</button>
+        </div>
+        <div id="camStatus" class="status"><i class="fas fa-info-circle"></i> اضغط "تشغيل الكاميرا" واسمح بالإذن</div>
+        
+        <hr>
+        
+        <label class="file-label"><i class="fas fa-upload"></i> رفع صورة QR من المعرض</label>
+        <input type="file" id="uploadQR" accept="image/*">
+        <button id="scanUploadBtn" class="btn"><i class="fas fa-search"></i> مسح الصورة</button>
+    </div>
+
+    <div class="card result-box" id="resultCard">
+        <div class="result-label"><i class="fas fa-user-lock"></i> الاسم المستخرج</div>
+        <div class="result-value" id="decodedName">—</div>
+        <div id="errorMsg" class="error" style="display:none;"></div>
+    </div>
+    <div class="status" style="text-align:center; margin-top:10px;">
+        <i class="fas fa-shield-alt"></i> تشفير متقدم · لا يمكن فكه خارج هذا التطبيق
+    </div>
+</div>
+
+<script>
+    // 🔐 المفتاح السري (يجب أن يطابق مفتاح مولد QR)
+    const MASTER_SECRET = "U2FsdGVkX1!qR#t9$WpL&vZ3@kF7dM2nB5vC8xZ1lA4wE6rY0oP9iU7*";
+
+    // دوال فك التشفير (نفس الخوارزمية المعقدة)
+    function decryptQRText(encodedText) {
+        if (!encodedText) return null;
+        try {
+            let cleaned = encodedText;
+            if (cleaned.endsWith("==")) cleaned = cleaned.slice(0, -2);
+            let reversed = cleaned.split('').reverse().join('');
+            let encryptedData = atob(reversed);
+            const decryptedBytes = CryptoJS.AES.decrypt(encryptedData, MASTER_SECRET);
+            const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
+            if (!decryptedText) return null;
+            const parts = decryptedText.split("::");
+            if (parts.length >= 2) return parts[1];
+            return decryptedText;
+        } catch(e) {
+            console.error(e);
+            return null;
+        }
+    }
+
+    function showResult(name, errorMsg = null) {
+        const nameSpan = document.getElementById('decodedName');
+        const errorDiv = document.getElementById('errorMsg');
+        if (name) {
+            nameSpan.innerText = name;
+            errorDiv.style.display = 'none';
+            document.getElementById('resultCard').style.borderLeftColor = "#2dd4bf";
+        } else {
+            nameSpan.innerText = "✖ فشل فك التشفير";
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = errorMsg || "لم يتم التعرف على الاسم. تأكد من أن رمز QR صادر من نظام التوليد الموافق.";
+            document.getElementById('resultCard').style.borderLeftColor = "#f87171";
+        }
+    }
+
+    // === كاميرا الهاتف ===
+    const video = document.getElementById('video');
+    const startCamBtn = document.getElementById('startCamBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const camStatus = document.getElementById('camStatus');
+    let mediaStream = null;
+    let cameraActive = false;
+
+    async function startCamera() {
+        if (cameraActive && mediaStream) {
+            // إيقاف الكاميرا
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                mediaStream = null;
+            }
+            cameraActive = false;
+            startCamBtn.innerHTML = '<i class="fas fa-play"></i> تشغيل الكاميرا';
+            captureBtn.disabled = true;
+            camStatus.innerHTML = '<i class="fas fa-info-circle"></i> الكاميرا متوقفة. اضغط "تشغيل الكاميرا" للمسح.';
+            return;
+        }
+        
+        try {
+            // طلب كاميرا خلفية على الهواتف
+            const constraints = {
+                video: {
+                    facingMode: { exact: "environment" } // كاميرا خلفية
+                }
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            mediaStream = stream;
+            await video.play();
+            cameraActive = true;
+            startCamBtn.innerHTML = '<i class="fas fa-stop"></i> إيقاف الكاميرا';
+            captureBtn.disabled = false;
+            camStatus.innerHTML = '<i class="fas fa-check-circle" style="color:#2dd4bf;"></i> الكاميرا تعمل. وجّه الكاميرا نحو QR ثم اضغط "التقاط".';
+        } catch (err) {
+            console.error(err);
+            // محاولة بديلة: كاميرا أمامية أو أي كاميرا
+            if (err.name === 'OverconstrainedError' || err.message.includes("environment")) {
+                try {
+                    const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = fallbackStream;
+                    mediaStream = fallbackStream;
+                    await video.play();
+                    cameraActive = true;
+                    startCamBtn.innerHTML = '<i class="fas fa-stop"></i> إيقاف الكاميرا';
+                    captureBtn.disabled = false;
+                    camStatus.innerHTML = '<i class="fas fa-check-circle"></i> الكاميرا تعمل (وضع بديل)';
+                } catch (fallbackErr) {
+                    handleCameraError(fallbackErr);
+                }
+            } else {
+                handleCameraError(err);
+            }
+        }
+    }
+
+    function handleCameraError(err) {
+        let msg = "تعذر الوصول إلى الكاميرا. تأكد من منح الإذن في متصفح الهاتف.";
+        if (err.message.includes("denied")) msg = "تم رفض إذن الكاميرا. امنح الإذن من إعدادات الموقع.";
+        camStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${msg}`;
+        alert(msg);
+        startCamBtn.innerHTML = '<i class="fas fa-play"></i> تشغيل الكاميرا';
+        captureBtn.disabled = true;
+        cameraActive = false;
+    }
+
+    // التقاط الإطار الحالي ومسحه
+    function captureAndScan() {
+        if (!cameraActive || !video.videoWidth || !video.videoHeight) {
+            alert("الكاميرا غير نشطة. اضغط 'تشغيل الكاميرا' أولاً.");
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: "attemptBoth" });
+        if (code && code.data) {
+            const name = decryptQRText(code.data);
+            showResult(name, "رمز QR غير متوافق");
+        } else {
+            showResult(null, "لم يتم العثور على رمز QR صالح في هذا الإطار. حاول تقريب الكاميرا.");
+        }
+    }
+
+    // === رفع صورة من المعرض ===
+    const uploadInput = document.getElementById('uploadQR');
+    const scanUploadBtn = document.getElementById('scanUploadBtn');
+
+    function scanImageFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: "attemptBoth" });
+                if (code && code.data) {
+                    const name = decryptQRText(code.data);
+                    showResult(name);
+                } else {
+                    showResult(null, "الصورة لا تحتوي على رمز QR صالح أو غير مقروء.");
+                }
+            };
+            img.onerror = () => showResult(null, "فشل تحميل الصورة.");
+            img.src = e.target.result;
+        };
+        reader.onerror = () => showResult(null, "خطأ في قراءة الملف.");
+        reader.readAsDataURL(file);
+    }
+
+    scanUploadBtn.addEventListener('click', () => {
+        if (!uploadInput.files || uploadInput.files.length === 0) {
+            alert("اختر صورة QR أولاً من المعرض");
+            return;
+        }
+        showResult("جارٍ المسح...");
+        scanImageFile(uploadInput.files[0]);
+    });
+
+    startCamBtn.addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', captureAndScan);
+
+    // تنظيف عند إغلاق الصفحة
+    window.addEventListener('beforeunload', () => {
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+    });
+</script>
+</body>
+</html>
